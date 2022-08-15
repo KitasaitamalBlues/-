@@ -4,12 +4,17 @@ import com.sun.jna.*;
 import com.sun.jna.win32.StdCallLibrary;
 import com.sun.jna.platform.win32.*;
 import com.sun.jna.platform.win32.WinDef.*;
+
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
+import java.util.regex.Pattern;
 
 public class VirtualInput {
-    public static final Map<String,Integer> mapToVKCode=new HashMap();
-    static{
+    public static final Map<String, Integer> mapToVKCode = new HashMap();
+
+    static {
         mapToVKCode.put("back", 8);
         mapToVKCode.put("tab", 9);
         mapToVKCode.put("return", 13);
@@ -69,19 +74,22 @@ public class VirtualInput {
         mapToVKCode.put("lmenu", 164);
         mapToVKCode.put("rmenu", 165);
     }
+
     public static final int __WM_KEYDOWN = 0x100;
     public static final int __WM_KEYUP = 0x101;
-    public static final HKL DWHKL=User32.INSTANCE.GetKeyboardLayout(0);
+    public static final HKL DWHKL = User32.INSTANCE.GetKeyboardLayout(0);
     HWND hwnd;
-    public HWND findWnd(){
-        String windowName="原神";
-        return hwnd=User32.INSTANCE.FindWindow("UnityWndClass",windowName);
-    }
-    public static void main(String[] args) throws Exception {
-        String windowName="原神";
-        HWND hwnd=User32.INSTANCE.FindWindow("UnityWndClass",windowName);
 
-        if(hwnd==null){
+    public HWND findWnd() {
+        String windowName = "原神";
+        return hwnd = User32.INSTANCE.FindWindow("UnityWndClass", windowName);
+    }
+
+    public static void main(String[] args) throws Exception {
+        String windowName = "原神";
+        HWND hwnd = User32.INSTANCE.FindWindow("UnityWndClass", windowName);
+
+        if (hwnd == null) {
             System.out.println("无窗口");
             return;
         }
@@ -89,144 +97,145 @@ public class VirtualInput {
 //        if(true)return;
 
         Thread.sleep(3000);
-        String str=
-                "aanads\n" +
-                        "\n" +
-                        "addbmn\n" +
-                        "\n" +
-                        "amnnasdb\n" +
-                        "\n" +
-                        "cbbcgd\n" +
-                        "\n" +
-                        "dsnads\n" +
-                        "\n" +
-                        "addbmn\n" +
-                        "\n" +
-                        "amnnddas\n" +
-                        "\n" +
-                        "addsdn\n" +
-                        "\n" +
-                        "dgh dhg\n" +
-                        "\n" +
-                        "ghg dsd\n" +
-                        "\n" +
-                        "dsanads\n" +
-                        "\n" +
-                        "dhhhas\n" +
-                        "\n" +
-                        "dgh dhg\n" +
-                        "\n" +
-                        "ghgghd\n" +
-                        "\n" +
-                        "dsanasdb\n" +
-                        "\n" +
-                        "bcbbmn";
-        new VirtualInput().play(hwnd,str);
+        String str = "aanads";
+        new VirtualInput().play(hwnd, str);
 
-        new VirtualInput().pressKey(hwnd,"w");
-        if(hwnd==null){
+        new VirtualInput().pressKey(hwnd, "w");
+        if (hwnd == null) {
             System.out.println("the Window is missing");
-        }else{
+        } else {
             System.out.println("get the handle");
-            User32.INSTANCE.ShowWindow(hwnd,WinUser.SW_RESTORE);
+            User32.INSTANCE.ShowWindow(hwnd, WinUser.SW_RESTORE);
         }
 
     }
 
-    public void pressKey(HWND hwnd,String key){
-        keyDown(hwnd,key);
+    public void pressKey(HWND hwnd, String key) {
+        keyDown(hwnd, key);
         try {
             Thread.sleep(20);
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            if(!Thread.currentThread().isInterrupted())Thread.currentThread().interrupt();
         }
-        keyUp(hwnd,key);
+        keyUp(hwnd, key);
     }
-    public void keyDown(HWND hwnd,String key){
-        int vkCode=getVirtualKey(key);
-        int scanCode=User32.INSTANCE.MapVirtualKeyEx(vkCode,0,DWHKL);
-        WPARAM wParam=new WPARAM(vkCode);
-        LPARAM lParam=new LPARAM(scanCode<<16| 1);
-        User32.INSTANCE.PostMessage(hwnd,__WM_KEYDOWN,wParam,lParam);
+
+    public void keyDown(HWND hwnd, String key) {
+        int vkCode = getVirtualKey(key);
+        int scanCode = User32.INSTANCE.MapVirtualKeyEx(vkCode, 0, DWHKL);
+        WPARAM wParam = new WPARAM(vkCode);
+        LPARAM lParam = new LPARAM(scanCode << 16 | 1);
+        User32.INSTANCE.PostMessage(hwnd, __WM_KEYDOWN, wParam, lParam);
     }
-    public void keyUp(HWND hwnd,String key){
-        int vkCode=getVirtualKey(key);
-        int scanCode=User32.INSTANCE.MapVirtualKeyEx(vkCode,0,DWHKL);
+
+    public void keyUp(HWND hwnd, String key) {
+        int vkCode = getVirtualKey(key);
+        int scanCode = User32.INSTANCE.MapVirtualKeyEx(vkCode, 0, DWHKL);
 //        System.out.println("vkCode"+vkCode+"scanCode"+scanCode);
-        WPARAM wParam=new WPARAM(vkCode);
-        LPARAM lParam=new LPARAM(scanCode<<16| 0XC0000001);
-        User32.INSTANCE.PostMessage(hwnd,__WM_KEYUP,wParam,lParam);
+        WPARAM wParam = new WPARAM(vkCode);
+        LPARAM lParam = new LPARAM(scanCode << 16 | 0XC0000001);
+        User32.INSTANCE.PostMessage(hwnd, __WM_KEYUP, wParam, lParam);
     }
-    public int getVirtualKey(String str){
-        if(str.length()==1&&31<str.charAt(0)&&str.charAt(0)<127){//判断可打印字符
-            return User32.INSTANCE.VkKeyScanExW(str.charAt(0),DWHKL)&0xff;
-        }else{
+
+    public int getVirtualKey(String str) {
+        if (str.length() == 1 && 31 < str.charAt(0) && str.charAt(0) < 127) {//判断可打印字符
+            return User32.INSTANCE.VkKeyScanExW(str.charAt(0), DWHKL) & 0xff;
+        } else {
             return mapToVKCode.get(str);
         }
     }
-    private static final int speed=150;
 
-    public void play(HWND hwnd,String str){
-        int delay=speed;
-        StringBuilder custom=null;
-        boolean b=false;
-        for(char ch:str.toCharArray()){
-            System.out.println(ch);
-            if(ch=='['||ch=='【'){
-                b=true;
-                custom=new StringBuilder();
-                custom.append('0');
-                System.out.println("[");
+    private static int speed = 400;
+    int delay;
+    private static char[] a={'z','x','c','v','b','n','m'},
+                            b={'a','s','d','f','g','h','j'},
+                            c={'q','w','e','r','t','y','u'};
+    Random random = new Random();
+    public void play(HWND hwnd, String str) {
+//        delay = speed;
+
+        try{
+            if(Pattern.matches("[ /]",str)){
+                Thread.sleep(delay);
+                System.out.print(str);
+                return;
             }
-            if(b&&ch<'9'&&ch>'0'){
-                custom.append(ch);
-                System.out.println("0-9");
+            if(Pattern.matches("[(（]",str)){
+
+//                Thread.sleep(delay);
+//                System.out.print("[" + delay + "](");
+                System.out.print(str);
+                delay = random.nextInt(10);
+                return;
             }
-            if(ch=='('||ch=='（'){
-                delay=0;
-                System.out.println("(");
-                continue;
+            if(Pattern.matches("[)）]",str.charAt(0)+"")){
+                delay = speed;
+                System.out.print(str);
+                Thread.sleep(suffixResolve(1,str.toCharArray()));
+                return;
             }
-            if(ch==')'||ch=='）'){
-                delay=speed;
-                System.out.println(")");
-                continue;
-            }
-            if((ch<'z'||ch<'Z')&&(ch>'a'||ch>'A')){
-                pressKey(hwnd,ch+"");
-                try {
-                    Thread.sleep(delay);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+            char[] chars = str.toCharArray();
+
+            if(chars.length>1){
+                if(Pattern.matches("[1-7]",chars[1]+"")) {
+                    //数字谱
+                    if (chars[1] == '0' || chars[1] > '7') return;
+                    int x=Integer.parseInt(chars[1]+"");
+                    if (chars[0] == 'a' || chars[0] == 'A') {
+                        pressKey(hwnd, a[x - 1] + "");
+                    } else if (chars[0] == 'b' || chars[0] == 'B') {
+                        pressKey(hwnd, b[x - 1] + "");
+                    } else if (chars[0] == 'c' || chars[0] == 'C') {
+                        pressKey(hwnd, c[x - 1] + "");
+                    } else {
+                        return;
+                    }
+                    Thread.sleep(suffixResolve(2, chars));
+                    System.out.print(chars);
+                    return;
                 }
-                System.out.println("a-z");
-                continue;
             }
-            try {
-                if(ch==' '){
-                    Thread.sleep(50);
-                    System.out.println(" ");
-                }
-                if(ch=='\n'){
-                    Thread.sleep(2*delay);
-                    System.out.println("\\n");
-                }
-                if(ch==']'||ch=='】'&&Integer.parseInt(custom.toString())<300){
-                    Thread.sleep(Integer.parseInt(custom.toString())*100);
-                    System.out.println("]");
-                }
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+//            if(a.toString().matches())
+            if(chars[0]!='0') pressKey(hwnd,chars[0]+"");
+            Thread.sleep(suffixResolve(1,chars));
+            System.out.print(chars);
+        }catch (Exception e){
+//            if(e instanceof InterruptedException)return;
+            if(! (e instanceof InterruptedException))e.printStackTrace();
+            if(!Thread.currentThread().interrupted()&&e instanceof InterruptedException)
+                Thread.currentThread().interrupt();
+        }
+
+    }
+    public int suffixResolve(int begin,char[] chars){
+        int up=1,down=1,addition=2;
+        for(int i=begin;i<chars.length;i++){
+            if(chars[i]=='.'||chars[i]=='·'){
+                addition=3;
+            }
+            if(chars[i]=='-'){
+                up*=2;
+            }
+            if(chars[i]=='_'){
+                down*=2;
             }
         }
+        if((up-1)*(down-1)!=0){
+            return -1;
+        }else{
+            if(up>4){
+                up=4;
+            }
+            System.out.print(" ["+delay*up/down*addition/2+"] ");
+            return delay*up/down*addition/2;
+        }
     }
-
-
-
-
-
-
-
+    public void setBpm(int bpm){
+        delay=speed=60*1000/bpm/4;
+    }
+    public void reset(){
+        delay=speed;
+    }
 
 
     public interface CLibrary extends Library {

@@ -1,11 +1,13 @@
 package com.hua.genshintools;
 
+import com.hua.genshintools.cache.Cache;
 import com.hua.genshintools.win32.HotKey;
 import com.hua.genshintools.win32.VirtualInput;
 import com.sun.jna.platform.win32.WinDef;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.scene.CacheHint;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.stage.DirectoryChooser;
@@ -18,8 +20,14 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.List;
 import java.util.ResourceBundle;
+import java.util.regex.Pattern;
 
 public class HelloController implements Initializable {
     @FXML
@@ -56,7 +64,11 @@ public class HelloController implements Initializable {
         );
         choosed = fileChooser.showOpenDialog(chooseFile.getScene().getWindow());
 
-        if(choosed!=null)file.setText(choosed.getName());
+        if(choosed!=null){
+            file.setText(choosed.getName());
+//            Cache.getInfo().lastOpen=choosed.getName();
+//            Cache.getCache().writeCache();
+        }
 //        System.out.println(choosed.getName());
 
     }
@@ -76,26 +88,39 @@ fileChooser.getExtensionFilters().addAll(
         if(hwnd!=null)handle.setText("原神"+hwnd.getPointer().hashCode());
         else handle.setText("原神未打开");
     }
-    Runnable runnable=new Runnable(){
 
+    Runnable runnable=new Runnable(){
+        StringBuilder temp=new StringBuilder();
         @Override
         public void run() {
                 if(choosed!=null&&choosed.exists()&&hwnd!=null){
+
                     //读取
                     FileInputStream in;
                     FileChannel ch;
                     try{
                         in=new FileInputStream(choosed);
                         ch=in.getChannel();
+                        temp.delete(0,temp.capacity());
                         ByteBuffer buffer=ByteBuffer.allocate(1024);
+                        vInput.reset();
                         for(;ch.read(buffer)>0;){
                             if(Thread.currentThread().isInterrupted()){
                                 break;
                             }
                             buffer.flip();
-                            vInput.play(hwnd,new String(buffer.array(), Charset.defaultCharset()));
+                            resolve(buffer);
                             buffer.clear();
+                            if(Thread.currentThread().isInterrupted()){
+                                break;
+                            }
                         }
+                        buffer.clear();
+                        buffer.put((byte)0xff);
+                        buffer.flip();
+                        resolve(buffer);
+                        findBpm=true;
+                        temp.delete(0,temp.capacity());
                     } catch (FileNotFoundException e) {
                         throw new RuntimeException(e);
                     } catch (IOException e) {
@@ -106,11 +131,71 @@ fileChooser.getExtensionFilters().addAll(
                     status.setText("已停止");
                 });
         }
+        boolean flag=false;
+        boolean findBpm=true;
+        int bpm;
+        void resolve(ByteBuffer buffer){
+            if(buffer.get(0)==(byte)0xff){
+                vInput.play(hwnd,temp.toString());
+                return;
+            }
+            CharsetDecoder decoder=Charset.defaultCharset().newDecoder();
+            String str = new String(buffer.array(), Charset.defaultCharset());
+            try {
+                str=decoder.decode(buffer).toString();
+            } catch (CharacterCodingException e) {
+                throw new RuntimeException(e);
+            }
+            for(char ch:str.toCharArray()){
+                if(Thread.currentThread().isInterrupted())return;
+                if(findBpm&&Pattern.matches("[0-9\\[]",ch+"")){
+                    if(ch!='['&&ch!='【') temp.append(ch);
+                    continue;
+                }
+                if(findBpm&&Pattern.matches("[\\]】]",ch+"")){
+                    try{
+                        bpm=Integer.parseInt(temp.toString());
+                        vInput.setBpm(bpm);
+                        findBpm=false;
+                        temp.delete(0,temp.capacity());
+                        System.out.println("bpm:"+bpm);
+                    }catch (Exception e){
+                        String log=file.getText()+":bpm解析错误  "+Calendar.getInstance().getTime();
+                        Cache.getCache().errPrint(log);
+                        System.out.println(log);
+                    }
+                    continue;
+                }
+                if(Pattern.matches("[a-zA-Z0\\(\\)（） ]",ch+"")){//字母为边界
+                    if(findBpm){
+                        temp.delete(0,temp.capacity());
+                        findBpm=false;
+                    }
+                    if(temp.toString().length()>0){
+                        vInput.play(hwnd,temp.toString());
+                        temp.delete(0,temp.capacity());
+                    }
+                    temp.append(ch);
+                    continue;
+                }
+                if(ch=='\n'||ch=='\r'){
+                    System.out.println();
+                    continue;
+                }
+                temp.append(ch);
+            }
+        }
     };
     Thread playProc;
     @Override
     public void initialize(URL location, ResourceBundle resources) {
 
+        //读取记录
+//        if(Cache.getInfo().lastOpen!=null){
+//            if(new File("./"+Cache.getInfo().lastOpen).exists())
+//        choosed=new File("./"+Cache.getInfo().lastOpen);
+//            file.setText(choosed.getName());
+//        }
         //初始化 绑定热键 获得原神句柄
         if(hotKey.registerHotKey()){
             HotKeyInfo.setText("绑定热键F9");
@@ -119,7 +204,6 @@ fileChooser.getExtensionFilters().addAll(
             Thread detect = new Thread(()->{
                 hotKey.registerHotKey();
                while(true){
-
                    hotKey.waitHotKey();
                    changeStatus();
                }

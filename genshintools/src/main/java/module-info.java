@@ -5,6 +5,7 @@ module com.hua.genshintools {
     requires com.sun.jna;
 
 
+
     opens com.hua.genshintools to javafx.fxml;
     exports com.hua.genshintools;
 }

@@ -15,7 +15,7 @@ public class HotKey {
         WinUser.MSG msg=new WinUser.MSG();
         if(User32.INSTANCE.GetMessage(msg,null,0,0)!=0){
             System.out.println("接受到热键");
-            System.out.println("start to Unregister");
+//            System.out.println("start to Unregister");
         }
         else{
             System.out.println("WM_QUIT");

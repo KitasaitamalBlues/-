@@ -14,7 +14,7 @@ public class HelloApplication extends Application {
         System.out.println(System.getProperty("user.dir"));
         FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("hello-view.fxml"));
         Scene scene = new Scene(fxmlLoader.load(), 400, 300);
-        stage.setTitle("连夜删库跑路");
+        stage.setTitle("auto-play");
         stage.setScene(scene);
         stage.setResizable(false);
         stage.show();
